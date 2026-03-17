@@ -1,118 +1,184 @@
 #include "game.h"
+
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <random>
 #include <string>
-#include <cmath>
 
-// -----------------------------
-// Helpers (propre et réutilisable)
-// -----------------------------
-static int readInt(const std::string& prompt) {
-    int value;
-    while (true) {
-        std::cout << prompt;
-        if (std::cin >> value) return value;
+namespace
+{
+    struct GameSettings
+    {
+        int maxNumber;
+        int maxAttempts;
+        int scoreBonus;
+        std::string difficultyName;
+    };
 
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::cout << "Entree invalide. Mets un nombre.\n";
-    }
-}
+    int readInteger(const std::string& prompt)
+    {
+        int value;
 
-struct Settings {
-    int maxNumber;
-    int maxTries;
-    int difficultyBonus; // bonus de score selon difficulté
-    std::string name;
-};
+        while (true)
+        {
+            std::cout << prompt;
 
-static Settings chooseDifficulty() {
-    std::cout << "\nChoisis une difficulte :\n";
-    std::cout << "1) Facile    (1-50,  10 essais)\n";
-    std::cout << "2) Moyen     (1-100, 8 essais)\n";
-    std::cout << "3) Difficile (1-500, 7 essais)\n";
+            if (std::cin >> value)
+            {
+                return value;
+            }
 
-    int choice = 0;
-    while (choice < 1 || choice > 3) {
-        choice = readInt("Ton choix (1-3) : ");
-        if (choice < 1 || choice > 3) {
-            std::cout << "Choix invalide. Reessaie.\n";
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid input. Please enter a valid number.\n";
         }
     }
 
-    if (choice == 1) return {50, 10, 0,  "Facile"};
-    if (choice == 2) return {100, 8,  15, "Moyen"};
-    return {500, 7,  35, "Difficile"};
-}
+    GameSettings chooseDifficulty()
+    {
+        std::cout << "\n=== Select Difficulty ===\n";
+        std::cout << "1. Easy   (1 to 50,  10 attempts)\n";
+        std::cout << "2. Medium (1 to 100, 8 attempts)\n";
+        std::cout << "3. Hard   (1 to 500, 7 attempts)\n\n";
 
-static int randomBetween(int min, int max) {
-    // RNG moderne (meilleure qualité que rand)
-    static std::mt19937 rng(std::random_device{}());
-    std::uniform_int_distribution<int> dist(min, max);
-    return dist(rng);
-}
+        int choice = 0;
 
-static void printHotColdHint(int secret, int guess, int previousDiff) {
-    int diff = std::abs(secret - guess);
+        while (choice < 1 || choice > 3)
+        {
+            choice = readInteger("Enter your choice (1-3): ");
 
-    if (previousDiff == -1) {
-        // premier essai : juste un état
-        if (diff <= 5)      std::cout << "🔥 Tres chaud !\n";
-        else if (diff <= 15) std::cout << "🌡️  Chaud.\n";
-        else if (diff <= 30) std::cout << "🧊 Froid.\n";
-        else                 std::cout << "🥶 Tres froid.\n";
-        return;
-    }
-
-    if (diff < previousDiff) std::cout << "📈 Tu te rapproches !\n";
-    else if (diff > previousDiff) std::cout << "📉 Tu t'eloignes !\n";
-    else std::cout << "😐 Pareil.\n";
-}
-
-// -----------------------------
-// Game entry point
-// -----------------------------
-void playGame() {
-    Settings s = chooseDifficulty();
-    const int secret = randomBetween(1, s.maxNumber);
-
-    int tries = 0;
-    int previousDiff = -1;
-
-    std::cout << "\n=== Devine le nombre (1 a " << s.maxNumber << ") ===\n";
-    std::cout << "Difficulte: " << s.name << " | Essais: " << s.maxTries << "\n\n";
-
-    while (tries < s.maxTries) {
-        int guess = readInt("Essai " + std::to_string(tries + 1) + "/" +
-                            std::to_string(s.maxTries) + " - Ton nombre : ");
-
-        tries++;
-
-        if (guess < 1 || guess > s.maxNumber) {
-            std::cout << "⚠️  Hors limite. Choisis entre 1 et " << s.maxNumber << ".\n";
-            continue; // on compte l'essai (à toi de décider, c'est plus "strict")
+            if (choice < 1 || choice > 3)
+            {
+                std::cout << "Invalid choice. Please select 1, 2, or 3.\n";
+            }
         }
 
-        if (guess < secret) {
-            std::cout << "Plus grand !\n";
-            printHotColdHint(secret, guess, previousDiff);
-        } else if (guess > secret) {
-            std::cout << "Plus petit !\n";
-            printHotColdHint(secret, guess, previousDiff);
-        } else {
-            // Score : base selon essais restants + bonus difficulté
-            int base = (s.maxTries - tries + 1) * 10;
-            int score = base + s.difficultyBonus;
+        switch (choice)
+        {
+            case 1:
+                return {50, 10, 0, "Easy"};
+            case 2:
+                return {100, 8, 15, "Medium"};
+            case 3:
+                return {500, 7, 35, "Hard"};
+            default:
+                return {100, 8, 15, "Medium"};
+        }
+    }
 
-            std::cout << "\n✅ Bravo !! Tu as gagne en " << tries << " essais.\n";
-            std::cout << "🎯 Score : " << score << " points (bonus difficulte: +" << s.difficultyBonus << ")\n";
+    int generateRandomNumber(int min, int max)
+    {
+        static std::random_device rd;
+        static std::mt19937 generator(rd());
+        std::uniform_int_distribution<int> distribution(min, max);
+        return distribution(generator);
+    }
+
+    void displayTemperatureHint(int difference, int previousDifference)
+    {
+        if (previousDifference == -1)
+        {
+            if (difference <= 5)
+            {
+                std::cout << "Very hot! You are extremely close.\n";
+            }
+            else if (difference <= 15)
+            {
+                std::cout << "Hot! You are getting close.\n";
+            }
+            else if (difference <= 30)
+            {
+                std::cout << "Cold. You still have some distance to cover.\n";
+            }
+            else
+            {
+                std::cout << "Very cold. You are far from the target.\n";
+            }
+
             return;
         }
 
-        previousDiff = std::abs(secret - guess);
-        std::cout << "\n";
+        if (difference < previousDifference)
+        {
+            std::cout << "You are getting closer.\n";
+        }
+        else if (difference > previousDifference)
+        {
+            std::cout << "You are getting farther away.\n";
+        }
+        else
+        {
+            std::cout << "You are at the same distance as before.\n";
+        }
     }
 
-    std::cout << "\n❌ Perdu… Le nombre etait : " << secret << "\n";
+    int calculateScore(const GameSettings& settings, int attemptsUsed)
+    {
+        const int remainingAttempts = settings.maxAttempts - attemptsUsed;
+        const int baseScore = (remainingAttempts + 1) * 10;
+        return baseScore + settings.scoreBonus;
+    }
+}
+
+void playGame()
+{
+    const GameSettings settings = chooseDifficulty();
+    const int secretNumber = generateRandomNumber(1, settings.maxNumber);
+
+    int attemptsUsed = 0;
+    int previousDifference = -1;
+
+    std::cout << "\n=== Guess the Number ===\n";
+    std::cout << "Difficulty: " << settings.difficultyName << '\n';
+    std::cout << "Range: 1 to " << settings.maxNumber << '\n';
+    std::cout << "Maximum attempts: " << settings.maxAttempts << "\n\n";
+
+    while (attemptsUsed < settings.maxAttempts)
+    {
+        const int guess = readInteger(
+            "Attempt " + std::to_string(attemptsUsed + 1) + "/" +
+            std::to_string(settings.maxAttempts) + " - Enter your guess: "
+        );
+
+        ++attemptsUsed;
+
+        if (guess < 1 || guess > settings.maxNumber)
+        {
+            std::cout << "Out of range. Please choose a number between 1 and "
+                      << settings.maxNumber << ".\n\n";
+            continue;
+        }
+
+        if (guess == secretNumber)
+        {
+            const int score = calculateScore(settings, attemptsUsed);
+
+            std::cout << "\nCongratulations! You guessed the correct number in "
+                      << attemptsUsed << " attempt"
+                      << (attemptsUsed > 1 ? "s" : "") << ".\n";
+
+            std::cout << "Final score: " << score
+                      << " points (difficulty bonus: +" << settings.scoreBonus << ")\n";
+
+            return;
+        }
+
+        if (guess < secretNumber)
+        {
+            std::cout << "Too low.\n";
+        }
+        else
+        {
+            std::cout << "Too high.\n";
+        }
+
+        const int currentDifference = std::abs(secretNumber - guess);
+        displayTemperatureHint(currentDifference, previousDifference);
+        previousDifference = currentDifference;
+
+        std::cout << '\n';
+    }
+
+    std::cout << "\nGame over. The correct number was: " << secretNumber << '\n';
 }
