@@ -3,4 +3,4 @@
 
 void playGame();
 
-#endif
+#endif // GAME_H
